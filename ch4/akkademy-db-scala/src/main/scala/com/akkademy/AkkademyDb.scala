@@ -11,8 +11,10 @@ class AkkademyDb extends Actor {
 
   override def receive = {
     case x: messages.Connected =>
+      log.info("case x: messages.Connected")
       sender() ! x
     case x: List[_] =>
+      log.info("case x: List[_] ")
       x.foreach{
         case SetRequest(key, value, senderRef) =>
           handleSetRequest(key, value, senderRef)
@@ -20,10 +22,13 @@ class AkkademyDb extends Actor {
           handleGetRequest(key, senderRef)
       }
     case SetRequest(key, value, senderRef) =>
+      log.info("case SetRequest(key, value, senderRef)")
       handleSetRequest(key, value, senderRef)
     case GetRequest(key, senderRef) =>
+      log.info("case GetRequest(key, senderRef)")
       handleGetRequest(key, senderRef)
     case o =>
+      log.info("case o")
       log.info("unknown message")
       sender() ! Status.Failure(new ClassNotFoundException)
   }
@@ -38,13 +43,14 @@ class AkkademyDb extends Actor {
     log.info("received GetRequest - key: {}", key)
     val response: Option[Object] = map.get(key)
     response match {
-      case Some(x) => senderRef ! x
-      case None => senderRef ! Status.Failure(new KeyNotFoundException(key))
+      case Some(x) => {
+        senderRef ! x
+      }
+      case None => {
+        log.error(s"no key found ${key}")
+        senderRef ! Status.Failure(new KeyNotFoundException(key))
+
+      }
     }
   }
-}
-
-object Main extends App {
-  val system = ActorSystem("akkademy")
-  val helloActor = system.actorOf(Props[AkkademyDb], name = "akkademy-db")
 }

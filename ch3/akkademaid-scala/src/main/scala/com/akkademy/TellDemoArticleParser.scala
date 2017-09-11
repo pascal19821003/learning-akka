@@ -3,7 +3,8 @@ package com.akkademy
 import java.util.concurrent.TimeoutException
 
 import akka.actor.Status.Failure
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorRef, Props, Status}
+import akka.event.Logging
 import akka.util.Timeout
 import com.akkademy.messages.{GetRequest, SetRequest}
 
@@ -12,6 +13,8 @@ class TellDemoArticleParser(cacheActorPath: String,
                             articleParserActorPath: String,
                             implicit val timeout: Timeout
                              ) extends Actor {
+
+  val log = Logging(context.system, this)
   val cacheActor = context.actorSelection(cacheActorPath)
   val httpClientActor = context.actorSelection(httpClientActorPath)
   val articleParserActor = context.actorSelection(articleParserActorPath)
@@ -29,11 +32,11 @@ class TellDemoArticleParser(cacheActorPath: String,
 
   override def receive: Receive = {
     case ParseArticle(uri) =>
-
+      log.info("start to parse article.")
       val extraActor = buildExtraActor(sender(), uri)
 
       cacheActor.tell(GetRequest(uri), extraActor)
-      httpClientActor.tell(uri, extraActor)
+      //httpClientActor.tell(uri, extraActor)
 
       context.system.scheduler.scheduleOnce(timeout.duration, extraActor, "timeout")
   }
@@ -45,6 +48,7 @@ class TellDemoArticleParser(cacheActorPath: String,
    * A great use case for the use of tell here (aka extra pattern) is aggregating data from several sources.
    */
   private def buildExtraActor(senderRef: ActorRef, uri: String): ActorRef = {
+    log.info("create a anonymous actor.")
     return context.actorOf(Props(new Actor{
       override def receive = {
         case "timeout" => //if we get timeout, then fail
@@ -64,10 +68,14 @@ class TellDemoArticleParser(cacheActorPath: String,
           senderRef ! body
           context.stop(self)
 
+        case Status.Failure(e:Exception) =>
+          log.info(s"receive exception: ${e.getMessage}")
+          httpClientActor ! uri
+
         case t => //We can get a cache miss
-          println("ignoring msg: " + t.getClass)
+          log.info("ignoring msg: " + t.getClass)
       }
-    }))
+    }),"midActor")
   }
 
 }

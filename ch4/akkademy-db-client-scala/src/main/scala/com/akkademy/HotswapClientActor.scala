@@ -1,6 +1,7 @@
 package com.akkademy
 
 import akka.actor.{Actor, Stash}
+import akka.event.Logging
 import com.akkademy.messages.{Connected, Request}
 
 /**
@@ -9,21 +10,26 @@ import com.akkademy.messages.{Connected, Request}
  */
 
 class HotswapClientActor(address: String) extends Actor with Stash {
+  val log = Logging(context.system, this)
   private val remoteDb = context.system.actorSelection(address)
 
   override def receive = {
     case x: Request =>  //can't handle until we know remote system is responding
+      log.info("receive case x: Request")
       remoteDb ! new Connected //see if the remote actor is up
       stash() //stash message for later
     case _: Connected => // Okay to start processing messages.
+      log.info("receive case _: Connected")
       unstashAll()
       context.become(online)
   }
 
   def online: Receive = {
     case x: Disconnected =>
+      log.info("online case x: Disconnected")
       context.unbecome()
     case x: Request =>
+      log.info("online case x: Request")
       remoteDb forward x //forward is used to preserve sender
   }
 }

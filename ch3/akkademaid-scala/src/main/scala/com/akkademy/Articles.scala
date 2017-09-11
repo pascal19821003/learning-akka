@@ -1,3 +1,5 @@
+package com.akkademy
+
 
 object Articles {
   val article1 = """<!DOCTYPE html>
